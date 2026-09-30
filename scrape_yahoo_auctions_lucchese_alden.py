@@ -498,7 +498,7 @@ def main() -> None:
             badges += '<span class="badge-379x">379X</span>'
         title_cell = badges + title_cell
         rendered_rows.append(
-            f'<tr class="{row_class}" data-brand="{html.escape(row["brand"])}" data-size="{html.escape(row.get("size") or "")}">'
+            f'<tr class="{row_class}" data-brand="{html.escape(row["brand"])}" data-size="{html.escape(row.get("size") or "")}" data-new="{"1" if row["is_new"] else "0"}">'
             f"<td>{html.escape(row['brand'])}</td>"
             f"<td>{html.escape(row['model'])}</td>"
             f"<td>{html.escape(row['size'] or '未明記')}</td>"
@@ -559,6 +559,7 @@ a {{ color: #0645ad; }}
 <div class="filters">
 <label for="brandFilter">品牌</label><select id="brandFilter"><option value="">全部品牌</option><option value="Alden">Alden</option><option value="Lucchese">Lucchese</option></select>
 <label for="sizeFilter">尺寸</label><select id="sizeFilter"><option value="">全部尺寸</option><option value="7D">7D</option><option value="7E">7E</option><option value="7.5D">7.5D</option></select>
+<label for="newFilter">New!</label><select id="newFilter"><option value="">全部</option><option value="1">只顯示 New!</option></select>
 <span id="resultCount">顯示 {len(rows)} 筆</span>
 </div>
 <table id="resultsTable">
@@ -570,12 +571,13 @@ a {{ color: #0645ad; }}
 <script>
 const brandFilter = document.getElementById('brandFilter');
 const sizeFilter = document.getElementById('sizeFilter');
+const newFilter = document.getElementById('newFilter');
 const resultCount = document.getElementById('resultCount');
 function applyFilters() {{
-  const brand = brandFilter.value, size = sizeFilter.value;
+  const brand = brandFilter.value, size = sizeFilter.value, isNew = newFilter.value;
   let count = 0;
   document.querySelectorAll('#resultsTable tbody tr.data-row').forEach(row => {{
-    const show = (!brand || row.dataset.brand === brand) && (!size || row.dataset.size === size);
+    const show = (!brand || row.dataset.brand === brand) && (!size || row.dataset.size === size) && (!isNew || row.dataset.new === isNew);
     row.style.display = show ? '' : 'none';
     if (show) count++;
   }});
@@ -583,6 +585,7 @@ function applyFilters() {{
 }}
 brandFilter.addEventListener('change', applyFilters);
 sizeFilter.addEventListener('change', applyFilters);
+newFilter.addEventListener('change', applyFilters);
 </script>
 </body>
 </html>
