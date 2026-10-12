@@ -26,6 +26,7 @@ CATEGORY_ID = "2084063128"
 KEYWORDS = [
     "Lucchese 7D", "Lucchese 7E", "Lucchese 7.5D",
     "Alden 7D", "Alden 7E", "Alden 7.5D",
+    "Tony Lama 7D", "Tony Lama 7E", "Tony Lama 7.5D",
 ]
 TARGET_SIZES = {"7D", "7E", "7.5D"}
 
@@ -64,7 +65,7 @@ EXCLUDE_TERMS = [
     "bag",
 ]
 
-TARGET_TERMS = ["lucchese", "ルケーシー", "alden", "オールデン"]
+TARGET_TERMS = ["lucchese", "ルケーシー", "alden", "オールデン", "tony lama", "tonylama", "トニーラマ"]
 FOOTWEAR_TERMS = [
     "靴", "シューズ", "ブーツ", "スニーカー", "ローファー", "革靴",
     "shoe", "shoes", "boot", "boots", "loafer", "oxford", "derby",
@@ -111,6 +112,8 @@ def product_brand(title: str) -> str:
         return "Lucchese"
     if "alden" in normalized or "オールデン" in normalized:
         return "Alden"
+    if "tony lama" in normalized or "tonylama" in normalized or "トニーラマ" in normalized:
+        return "Tony Lama"
     return "未明記"
 
 
@@ -414,7 +417,7 @@ def main() -> None:
             try:
                 text = fetch(url, dest)
             except Exception as exc:
-                fallback = keyword.split()[0]
+                fallback = keyword.rsplit(" ", 1)[0]
                 if page == 1 and fallback != keyword:
                     print(f"search failed {keyword} p{page}: {exc}; fallback={fallback}")
                     url = search_url(fallback)
@@ -518,7 +521,7 @@ def main() -> None:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yahoo!オークション Lucchese / Alden 尺寸搜尋結果</title>
+<title>Yahoo!オークション Lucchese / Alden / Tony Lama 尺寸搜尋結果</title>
 <style>
 body {{ font-family: Arial, "Microsoft JhengHei", sans-serif; margin: 16px; color: #222; }}
 h1 {{ font-size: 20px; margin: 0 0 8px; }}
@@ -543,7 +546,7 @@ a {{ color: #0645ad; }}
 </style>
 </head>
 <body>
-<h1>Yahoo!オークション Lucchese / Alden 商品搜尋結果</h1>
+<h1>Yahoo!オークション Lucchese / Alden / Tony Lama 商品搜尋結果</h1>
 <div class="meta">
 <div class="line">
 <span>來源：Yahoo!オークション全站搜尋</span>
@@ -557,7 +560,7 @@ a {{ color: #0645ad; }}
 <div class="keywords" title="{key_html}">關鍵字：{key_html}</div>
 </div>
 <div class="filters">
-<label for="brandFilter">品牌</label><select id="brandFilter"><option value="">全部品牌</option><option value="Alden">Alden</option><option value="Lucchese">Lucchese</option></select>
+<label for="brandFilter">品牌</label><select id="brandFilter"><option value="">全部品牌</option><option value="Alden">Alden</option><option value="Lucchese">Lucchese</option><option value="Tony Lama">Tony Lama</option></select>
 <label for="sizeFilter">尺寸</label><select id="sizeFilter"><option value="">全部尺寸</option><option value="7D">7D</option><option value="7E">7E</option><option value="7.5D">7.5D</option></select>
 <label for="newFilter">New!</label><select id="newFilter"><option value="">全部</option><option value="1">只顯示 New!</option></select>
 <span id="resultCount">顯示 {len(rows)} 筆</span>
