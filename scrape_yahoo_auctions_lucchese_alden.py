@@ -317,39 +317,33 @@ def is_footwear(text: str) -> bool:
     return any(term.lower() in lower for term in FOOTWEAR_TERMS)
 
 
-def auction_end_time(item) -> str:
-    node = item.select_one("[data-auction-endtime]")
-    if not node:
+def auction_end_time(iso: str | None) -> str:
+    if not iso:
         return "未取得"
     try:
-        ts = int(node.get("data-auction-endtime"))
-    except (TypeError, ValueError):
+        return datetime.fromisoformat(iso).astimezone(JST).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
         return "未取得"
-    return datetime.fromtimestamp(ts, tz=JST).strftime("%Y-%m-%d %H:%M")
 
 
-def parse_page(text: str, keyword: str) -> tuple[list[dict], str | None]:
-    soup = BeautifulSoup(text, "html.parser")
+def parse_page(text: str, keyword: str) -> tuple[list[dict], int, int]:
+    script = BeautifulSoup(text, "html.parser").select_one("script#__NEXT_DATA__")
+    if not script or not script.string:
+        raise ValueError("search page has no __NEXT_DATA__ (page layout changed or request blocked)")
+    listing = json.loads(script.string)["props"]["pageProps"]["initialState"]["search"]["items"]["listing"]
+    items = listing["items"]
     rows = []
-    for item in soup.select("li.Product"):
-        a = item.select_one("a.Product__titleLink")
-        if not a:
+    for item in items:
+        if item.get("isFleamarketItem"):
             continue
-        title = " ".join(a.get_text(" ", strip=True).split())
-        link = a.get("href", "").split("?")[0]
-        if not link or not is_target(title):
+        title = " ".join(str(item.get("title", "")).split())
+        if not title or not is_target(title):
             continue
-        img = item.select_one("img.Product__imageData")
-        thumbnail = img.get("src", "") if img else ""
         prices = []
-        for price_node in item.select(".Product__price"):
-            label = price_node.select_one(".Product__label")
-            value = price_node.select_one(".Product__priceValue")
-            label_text = label.get_text(" ", strip=True) if label else ""
-            value_text = value.get_text(" ", strip=True) if value else price_node.get_text(" ", strip=True)
-            amount = yen_int(value_text)
-            if amount is not None:
-                prices.append({"label": label_text or "価格", "jpy": amount})
+        if item.get("price"):
+            prices.append({"label": "現在", "jpy": int(item["price"])})
+        if item.get("buyNowPrice"):
+            prices.append({"label": "即決", "jpy": int(item["buyNowPrice"])})
         rows.append(
             {
                 "keyword": keyword,
@@ -359,21 +353,20 @@ def parse_page(text: str, keyword: str) -> tuple[list[dict], str | None]:
                 "last": shoe_last(title),
                 "model": model_from_title(title),
                 "size": extract_size(title),
-                "end_time": auction_end_time(item),
+                "end_time": auction_end_time(item.get("endTime")),
                 "title": title,
-                "link": link,
-                "thumbnail": thumbnail,
+                "link": f"https://auctions.yahoo.co.jp/jp/auction/{item['auctionId']}",
+                "thumbnail": item.get("imageUrl", ""),
                 "prices": prices,
             }
         )
-    next_link = soup.select_one('link[rel="next"]')
-    return rows, next_link.get("href") if next_link else None
+    return rows, int(listing.get("totalResultsAvailable", 0)), len(items)
 
 
-def search_url(keyword: str) -> str:
+def search_url(keyword: str, start: int = 1) -> str:
     q = urllib.parse.quote(keyword)
     va = urllib.parse.quote_plus(keyword)
-    return f"https://auctions.yahoo.co.jp/search/search?p={q}&va={va}&b=1&n=50"
+    return f"https://auctions.yahoo.co.jp/search/search?p={q}&va={va}&b={start}&n=50"
 
 
 def load_previous_links(output_date: str) -> set[str]:
@@ -409,7 +402,8 @@ def main() -> None:
     fetch_log = []
 
     for keyword_index, keyword in enumerate(KEYWORDS, start=1):
-        url = search_url(keyword)
+        query = keyword
+        url = search_url(query)
         page = 1
         while url:
             safe_kw = re.sub(r"[^A-Za-z0-9ぁ-んァ-ヶ一-龠]+", "_", keyword).strip("_")
@@ -420,7 +414,8 @@ def main() -> None:
                 fallback = keyword.rsplit(" ", 1)[0]
                 if page == 1 and fallback != keyword:
                     print(f"search failed {keyword} p{page}: {exc}; fallback={fallback}")
-                    url = search_url(fallback)
+                    query = fallback
+                    url = search_url(query)
                     try:
                         text = fetch(url, dest)
                     except Exception as fallback_exc:
@@ -429,7 +424,7 @@ def main() -> None:
                 else:
                     print(f"search failed {keyword} p{page}: {exc}")
                     break
-            rows, next_url = parse_page(text, keyword)
+            rows, total, page_items = parse_page(text, keyword)
             added = 0
             for row in rows:
                 if row["link"] not in seen:
@@ -441,7 +436,8 @@ def main() -> None:
                         existing["keyword"] += f" / {keyword}"
             fetch_log.append({"keyword": keyword, "page": page, "rows": len(rows), "new": added, "url": url})
             print(f"{keyword} p{page}: rows={len(rows)} new={added}")
-            url = next_url
+            next_start = page * 50 + 1
+            url = search_url(query, next_start) if rows and page_items == 50 and next_start <= total else None
             page += 1
             time.sleep(random.uniform(1.7, 3.2))
 
